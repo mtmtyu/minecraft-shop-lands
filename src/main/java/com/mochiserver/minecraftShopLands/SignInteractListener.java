@@ -32,9 +32,14 @@ public class SignInteractListener implements Listener {
         // ショップの看板かチェック
         if (!ShopSignManager.isShopSign(block.getLocation())) {
             return;
+        }        Player player = event.getPlayer();
+        
+        // 土地購入権限をチェック
+        if (!player.hasPermission("shoplands.buy")) {
+            player.sendMessage("§c土地を購入する権限がありません。");
+            return;
         }
-
-        Player player = event.getPlayer();
+        
         ShopSignManager.ShopSignData signData = ShopSignManager.getShopSign(block.getLocation());
 
         if (signData == null) {

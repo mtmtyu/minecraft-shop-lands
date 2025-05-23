@@ -18,19 +18,12 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import net.kyori.adventure.text.Component;
 
-public class CreateShopCommand implements CommandExecutor {
-    
-    private final MinecraftShopLands plugin;
-    
-    public CreateShopCommand(MinecraftShopLands plugin) {
-        this.plugin = plugin;
-    }
-
-    @Override
+public class CreateShopCommand implements CommandExecutor {@Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
             sender.sendMessage("§cこのコマンドはプレイヤーのみ実行できます。");
@@ -38,6 +31,12 @@ public class CreateShopCommand implements CommandExecutor {
         }
 
         Player player = (Player) sender;
+
+        // 権限チェック
+        if (!player.hasPermission("shoplands.create")) {
+            player.sendMessage("§c土地を作成する権限がありません。");
+            return true;
+        }
 
         if (!RegionSelector.hasCompleteSelection(player)) {
             player.sendMessage("§c範囲が選択されていません。木の斧で範囲を選択してください。");
@@ -53,28 +52,41 @@ public class CreateShopCommand implements CommandExecutor {
         }
 
         // 地域名を生成（プレイヤー名 + タイムスタンプ）
-        String regionName = "shop_" + player.getName() + "_" + System.currentTimeMillis();        try {
+        String regionName = "shop_" + player.getName() + "_" + System.currentTimeMillis();try {
             // デバッグ情報を表示
             player.sendMessage("§7選択範囲: " + formatLocation(pos1) + " - " + formatLocation(pos2));
             
             // WorldGuardの地域を作成
-            createWorldGuardRegion(pos1, pos2, regionName, player.getWorld());
-              // 看板を設置
+            createWorldGuardRegion(pos1, pos2, regionName, player.getWorld());            // 看板を設置
             Location signLocation = findFloorCenter(pos1, pos2);
+            boolean signPlaced = false;
+            
             if (signLocation != null) {
-                placeSign(signLocation, regionName, player);
-                player.sendMessage("§a土地 §e" + regionName + " §aを作成し、看板を設置しました！");
-                player.sendMessage("§7看板位置: " + formatLocation(signLocation));
-            } else {
-                // 床が見つからない場合は、範囲の最下層に強制的に設置
+                signPlaced = placeSign(signLocation, regionName, player);
+                if (signPlaced) {
+                    player.sendMessage("§a土地 §e" + regionName + " §aを作成し、看板を設置しました！");
+                    player.sendMessage("§7看板位置: " + formatLocation(signLocation));
+                }
+            }
+            
+            if (!signPlaced) {
+                // 床が見つからない、または設置に失敗した場合は、フォールバック位置を試す
                 Location fallbackLocation = getFallbackSignLocation(pos1, pos2);
                 if (fallbackLocation != null) {
-                    placeSign(fallbackLocation, regionName, player);
-                    player.sendMessage("§a土地 §e" + regionName + " §aを作成し、看板を設置しました！");
-                    player.sendMessage("§7看板位置: " + formatLocation(fallbackLocation));
-                } else {
-                    player.sendMessage("§e土地 §e" + regionName + " §eを作成しましたが、看板を設置する場所が見つかりませんでした。");
+                    signPlaced = placeSign(fallbackLocation, regionName, player);
+                    if (signPlaced) {
+                        player.sendMessage("§a土地 §e" + regionName + " §aを作成し、看板を設置しました！");
+                        player.sendMessage("§7看板位置: " + formatLocation(fallbackLocation));
+                    }
                 }
+            }
+            
+            if (!signPlaced) {
+                // 看板の自動設置に失敗した場合、プレイヤーに看板アイテムを配布
+                giveShopSignItem(player, regionName);
+                player.sendMessage("§e土地 §e" + regionName + " §eを作成しました。");
+                player.sendMessage("§6看板の自動設置に失敗したため、看板アイテムをインベントリに追加しました。");
+                player.sendMessage("§7適切な場所に看板を設置してください。");
             }
 
             // 選択をクリア
@@ -144,54 +156,38 @@ public class CreateShopCommand implements CommandExecutor {
         }
 
         return null;
-    }    private void placeSign(Location location, String regionName, Player owner) {
+    }    private boolean placeSign(Location location, String regionName, Player owner) {
         // 非同期でブロックを空気に設定してから、同期的に看板を設置
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                Block block = location.getBlock();
+        try {
+            Block block = location.getBlock();
+            
+            // 既存のブロックを空気に変更
+            block.setType(Material.AIR);
+            
+            // 同期処理で看板を設置
+            block.setType(Material.OAK_SIGN);
+            
+            if (block.getState() instanceof Sign) {
+                Sign sign = (Sign) block.getState();
                 
-                // 既存のブロックを空気に変更
-                block.setType(Material.AIR);
-                
-                // 1tick後に看板を設置
-                new BukkitRunnable() {
-                    @Override
-                    public void run() {
-                        block.setType(Material.OAK_SIGN);
-                        
-                        // さらに1tick後にテキストを設定
-                        new BukkitRunnable() {
-                            @Override
-                            public void run() {
-                                if (block.getState() instanceof Sign) {
-                                    Sign sign = (Sign) block.getState();
-                                    
-                                    try {
-                                        // 新しいAPIを使用（Component API）
-                                        sign.getSide(org.bukkit.block.sign.Side.FRONT).line(0, Component.text("§6[土地販売]"));
-                                        sign.getSide(org.bukkit.block.sign.Side.FRONT).line(1, Component.text("§e" + regionName));
-                                        sign.getSide(org.bukkit.block.sign.Side.FRONT).line(2, Component.text("§7右クリックで"));
-                                        sign.getSide(org.bukkit.block.sign.Side.FRONT).line(3, Component.text("§7土地を購入"));
-                                        sign.update();
+                // 新しいAPIを使用（Component API）
+                sign.getSide(org.bukkit.block.sign.Side.FRONT).line(0, Component.text("§6[土地販売]"));
+                sign.getSide(org.bukkit.block.sign.Side.FRONT).line(1, Component.text("§e" + regionName));
+                sign.getSide(org.bukkit.block.sign.Side.FRONT).line(2, Component.text("§7右クリックで"));
+                sign.getSide(org.bukkit.block.sign.Side.FRONT).line(3, Component.text("§7土地を購入"));
+                sign.update();
 
-                                        // 看板データを保存
-                                        ShopSignManager.addShopSign(location, regionName, owner.getUniqueId());
-                                        
-                                        owner.sendMessage("§a看板を設置しました: " + formatLocation(location));
-                                    } catch (Exception e) {
-                                        owner.sendMessage("§c看板のテキスト設定に失敗しました: " + e.getMessage());
-                                        e.printStackTrace();
-                                    }
-                                } else {
-                                    owner.sendMessage("§c看板の設置に失敗しました。ブロック状態を取得できませんでした。");
-                                }
-                            }
-                        }.runTaskLater(plugin, 1L);
-                    }
-                }.runTaskLater(plugin, 1L);
+                // 看板データを保存
+                ShopSignManager.addShopSign(location, regionName, owner.getUniqueId());
+                
+                return true;
+            } else {
+                return false;
             }
-        }.runTask(plugin);
+        } catch (Exception e) {
+            owner.sendMessage("§c看板の設置中にエラーが発生しました: " + e.getMessage());
+            return false;
+        }
     }
 
     private Location getFallbackSignLocation(Location pos1, Location pos2) {
@@ -218,5 +214,18 @@ public class CreateShopCommand implements CommandExecutor {
     
     private String formatLocation(Location loc) {
         return String.format("(%d, %d, %d)", loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
+    }
+
+    private void giveShopSignItem(Player player, String regionName) {
+        ItemStack signItem = ShopSignItem.createShopSign(regionName, player.getUniqueId());
+        
+        // インベントリに空きがあるかチェック
+        if (player.getInventory().firstEmpty() != -1) {
+            player.getInventory().addItem(signItem);
+        } else {
+            // インベントリが満杯の場合は地面に落とす
+            player.getWorld().dropItem(player.getLocation(), signItem);
+            player.sendMessage("§7インベントリが満杯のため、看板を地面に落としました。");
+        }
     }
 }

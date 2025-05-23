@@ -9,3 +9,14 @@ commands:
   createshop:
     description: 選択範囲に土地を作成します
     usage: /createshop
+    permission: shoplands.create
+permissions:
+  shoplands.create:
+    description: 土地を作成する権限
+    default: op
+  shoplands.buy:
+    description: 土地を購入する権限
+    default: true
+  shoplands.admin:
+    description: 管理者権限
+    default: op

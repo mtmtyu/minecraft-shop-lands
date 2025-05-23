@@ -8,14 +8,17 @@ import org.bukkit.event.block.Action;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 
-public class AxeInteractListener implements Listener {
-
-    @EventHandler
+public class AxeInteractListener implements Listener {    @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
         
         // 木の斧を持っているかチェック
         if (player.getInventory().getItemInMainHand().getType() != Material.WOODEN_AXE) {
+            return;
+        }
+
+        // 権限チェック
+        if (!player.hasPermission("shoplands.create")) {
             return;
         }
 

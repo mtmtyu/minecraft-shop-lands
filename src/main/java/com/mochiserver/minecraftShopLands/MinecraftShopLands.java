@@ -16,9 +16,10 @@ public final class MinecraftShopLands extends JavaPlugin {
         // イベントリスナーを登録
         getServer().getPluginManager().registerEvents(new AxeInteractListener(), this);
         getServer().getPluginManager().registerEvents(new SignInteractListener(), this);
+        getServer().getPluginManager().registerEvents(new ShopSignPlaceListener(), this);
 
         // コマンドを登録
-        getCommand("createshop").setExecutor(new CreateShopCommand(this));
+        getCommand("createshop").setExecutor(new CreateShopCommand());
 
         getLogger().info("MinecraftShopLands プラグインが有効になりました！");
         getLogger().info("木の斧で範囲選択し、/createshop コマンドで土地を作成できます。");
