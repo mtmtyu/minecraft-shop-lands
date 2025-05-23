@@ -1,0 +1,6 @@
+name: minecraft-shop-lands
+version: '1.0'
+main: com.mochiserver.minecraftShopLands.MinecraftShopLands
+api-version: '1.21'
+authors: [ mtmtyu ]
+description: エンドのエリトラを自動削除するプラグイン
