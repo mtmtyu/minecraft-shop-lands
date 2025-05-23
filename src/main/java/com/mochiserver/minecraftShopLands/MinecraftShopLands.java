@@ -6,12 +6,26 @@ public final class MinecraftShopLands extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        // Plugin startup logic
+        // WorldGuardプラグインが有効かチェック
+        if (getServer().getPluginManager().getPlugin("WorldGuard") == null) {
+            getLogger().severe("WorldGuardが見つかりません。このプラグインを無効にします。");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
 
+        // イベントリスナーを登録
+        getServer().getPluginManager().registerEvents(new AxeInteractListener(), this);
+        getServer().getPluginManager().registerEvents(new SignInteractListener(), this);
+
+        // コマンドを登録
+        getCommand("createshop").setExecutor(new CreateShopCommand(this));
+
+        getLogger().info("MinecraftShopLands プラグインが有効になりました！");
+        getLogger().info("木の斧で範囲選択し、/createshop コマンドで土地を作成できます。");
     }
 
     @Override
     public void onDisable() {
-        // Plugin shutdown logic
+        getLogger().info("MinecraftShopLands プラグインが無効になりました。");
     }
 }
