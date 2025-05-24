@@ -1,19 +1,41 @@
 package com.mochiserver.minecraftShopLands;
 
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.scheduler.BukkitRunnable;
 import net.kyori.adventure.text.Component;
 
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
 
-public class ShopSignPlaceListener implements Listener {    @EventHandler
+public class ShopSignPlaceListener implements Listener {
+    
+    // 自動設定される看板の位置を追跡
+    private static final Set<Location> autoSettingSigns = new HashSet<>();
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onSignChange(SignChangeEvent event) {
+        Location signLocation = event.getBlock().getLocation();
+        
+        // 自動設定される看板の場合、編集を防ぐ
+        if (autoSettingSigns.contains(signLocation)) {
+            event.setCancelled(true);
+            return;
+        }
+    }
+
+    @EventHandler
     public void onBlockPlace(BlockPlaceEvent event) {
         Player player = event.getPlayer();
         Block block = event.getBlock();
@@ -55,34 +77,54 @@ public class ShopSignPlaceListener implements Listener {    @EventHandler
                 regionName = lineText.replace("土地名: §e", "").replace("§e", "");
                 break;
             }
-        }
-
-        if (regionName == null) {
+        }        if (regionName == null) {
             player.sendMessage("§c看板から地域名を読み取れませんでした。");
             return;
         }
 
-        // 看板にテキストを設定
+        final String finalRegionName = regionName;
+        final Location signLocation = block.getLocation();
+        
+        // この看板を自動設定リストに追加
+        autoSettingSigns.add(signLocation);
+        
+        // 看板にテキストを設定（遅延実行で編集画面を回避）
         if (block.getState() instanceof Sign) {
-            Sign sign = (Sign) block.getState();
-            
-            try {
-                sign.getSide(org.bukkit.block.sign.Side.FRONT).line(0, Component.text("§6[土地販売]"));
-                sign.getSide(org.bukkit.block.sign.Side.FRONT).line(1, Component.text("§e" + regionName));
-                sign.getSide(org.bukkit.block.sign.Side.FRONT).line(2, Component.text("§7右クリックで"));
-                sign.getSide(org.bukkit.block.sign.Side.FRONT).line(3, Component.text("§7土地を購入"));
-                sign.update();
+            // 5ティック後に看板テキストを設定（編集画面が完全に閉じた後）
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    try {
+                        if (block.getState() instanceof Sign) {
+                            Sign delayedSign = (Sign) block.getState();
+                            delayedSign.getSide(org.bukkit.block.sign.Side.FRONT).line(0, Component.text("§6[土地販売]"));
+                            delayedSign.getSide(org.bukkit.block.sign.Side.FRONT).line(1, Component.text("§e" + finalRegionName));
+                            delayedSign.getSide(org.bukkit.block.sign.Side.FRONT).line(2, Component.text("§7右クリックで"));
+                            delayedSign.getSide(org.bukkit.block.sign.Side.FRONT).line(3, Component.text("§7土地を購入"));
+                            delayedSign.update();
 
-                // 看板データを保存
-                ShopSignManager.addShopSign(block.getLocation(), regionName, player.getUniqueId());
+                            // 看板データを保存
+                            ShopSignManager.addShopSign(signLocation, finalRegionName, player.getUniqueId());
 
-                player.sendMessage("§a土地販売看板を設置しました！");
-                player.sendMessage("§7地域名: §e" + regionName);
-                
-            } catch (Exception e) {
-                player.sendMessage("§c看板の設定中にエラーが発生しました: " + e.getMessage());
-                e.printStackTrace();
-            }
+                            player.sendMessage("§a土地販売看板を設置しました！");
+                            player.sendMessage("§7地域名: §e" + finalRegionName);
+                            
+                            // 10ティック後に自動設定リストから削除（編集画面が完全に処理された後）
+                            new BukkitRunnable() {
+                                @Override
+                                public void run() {
+                                    autoSettingSigns.remove(signLocation);
+                                }
+                            }.runTaskLater(org.bukkit.Bukkit.getPluginManager().getPlugin("minecraft-shop-lands"), 10L);
+                        }
+                    } catch (Exception e) {
+                        player.sendMessage("§c看板の設定中にエラーが発生しました: " + e.getMessage());
+                        e.printStackTrace();
+                        // エラーが発生した場合もリストから削除
+                        autoSettingSigns.remove(signLocation);
+                    }
+                }
+            }.runTaskLater(org.bukkit.Bukkit.getPluginManager().getPlugin("minecraft-shop-lands"), 5L);
         }
     }
 }
