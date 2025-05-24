@@ -3,8 +3,6 @@ package com.mochiserver.minecraftShopLands;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldguard.WorldGuard;
-import com.sk89q.worldguard.protection.flags.Flags;
-import com.sk89q.worldguard.protection.flags.StateFlag;
 import com.sk89q.worldguard.protection.managers.RegionManager;
 import com.sk89q.worldguard.protection.regions.ProtectedCuboidRegion;
 import com.sk89q.worldguard.protection.regions.RegionContainer;
@@ -82,17 +80,20 @@ public class CreateShopCommand implements CommandExecutor {@Override
         RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
         RegionManager regions = container.get(BukkitAdapter.adapt(world));
 
-        if (regions != null) {
-            // 保護範囲を作成
+        if (regions != null) {            // 保護範囲を作成
             BlockVector3 min = BlockVector3.at(minX, minY, minZ);
             BlockVector3 max = BlockVector3.at(maxX, maxY, maxZ);
             ProtectedCuboidRegion region = new ProtectedCuboidRegion(regionName, min, max);
 
-            // フラグを設定（build, block-place, block-break を DENY、優先度 10）
-            region.setFlag(Flags.BUILD, StateFlag.State.DENY);
-            region.setFlag(Flags.BLOCK_PLACE, StateFlag.State.DENY);
-            region.setFlag(Flags.BLOCK_BREAK, StateFlag.State.DENY);
-            region.setPriority(10);            // 地域を登録
+            // WorldGuardのデフォルト設定を使用
+            // - 地域にオーナー・メンバーが設定されていない場合：誰も建築不可
+            // - オーナー・メンバーが設定されている場合：その人のみ建築可能
+            // フラグを明示的に設定しないことで、WorldGuardのデフォルト動作を利用
+            
+            // 優先度を設定（他の地域より優先）
+            region.setPriority(10);
+
+            // 地域を登録
             regions.addRegion(region);
         }
     }

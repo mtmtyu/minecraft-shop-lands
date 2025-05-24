@@ -21,6 +21,10 @@ commands:
     description: 指定プレイヤーの土地所有権をリセットします
     usage: /resetland <プレイヤー名>
     permission: shoplands.admin
+  debugregion:
+    description: 地域の詳細情報を表示します（デバッグ用）
+    usage: /debugregion <地域名>
+    permission: shoplands.admin
 permissions:
   shoplands.create:
     description: 土地を作成する権限

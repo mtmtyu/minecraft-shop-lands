@@ -3,8 +3,6 @@ package com.mochiserver.minecraftShopLands;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldguard.WorldGuard;
 import com.sk89q.worldguard.domains.DefaultDomain;
-import com.sk89q.worldguard.protection.flags.Flags;
-import com.sk89q.worldguard.protection.flags.StateFlag;
 import com.sk89q.worldguard.protection.managers.RegionManager;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import com.sk89q.worldguard.protection.regions.RegionContainer;
@@ -82,6 +80,10 @@ public class SignInteractListener implements Listener {
         if (regions != null) {
             ProtectedRegion region = regions.getRegion(regionName);
             if (region != null) {
+                // デバッグ情報を表示
+                player.sendMessage("§7[デバッグ] 地域発見: " + regionName);
+                player.sendMessage("§7[デバッグ] 優先度: " + region.getPriority());
+                
                 // プレイヤーをオーナーに追加（より高い権限）
                 DefaultDomain owners = region.getOwners();
                 owners.addPlayer(player.getUniqueId());
@@ -92,28 +94,35 @@ public class SignInteractListener implements Listener {
                 members.addPlayer(player.getUniqueId());
                 region.setMembers(members);
 
+                // 変更を保存
+                try {
+                    regions.save();
+                    player.sendMessage("§7[デバッグ] 地域権限の保存完了");
+                } catch (Exception e) {
+                    player.sendMessage("§c[デバッグ] 地域権限の保存に失敗: " + e.getMessage());
+                }
+
                 player.sendMessage("§a地域 §e" + regionName + " §aのオーナーになりました！");
                 player.sendMessage("§7この土地では自由に建築・破壊ができます。");
+                player.sendMessage("§7[デバッグ] オーナーID: " + player.getUniqueId());
             } else {
                 player.sendMessage("§c地域が見つかりませんでした: " + regionName);
             }
         } else {
             player.sendMessage("§c地域管理システムにアクセスできませんでした。");
         }
-    }    /**
+    }/**
      * プレイヤーが既に土地を所有しているかチェック
      * ショップ土地の地域のみをチェック対象とする
      */
     private boolean hasPlayerOwnedLand(Player player) {
         RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
         RegionManager regions = container.get(BukkitAdapter.adapt(player.getWorld()));
-        
-        if (regions != null) {
+          if (regions != null) {
             // すべての地域をチェック
             for (ProtectedRegion region : regions.getRegions().values()) {
-                // ショップ土地の地域かチェック（優先度10でbuild=DENYの地域）
-                if (region.getPriority() == 10 && 
-                    region.getFlag(Flags.BUILD) == StateFlag.State.DENY) {
+                // ショップ土地の地域かチェック（優先度10の地域）
+                if (region.getPriority() == 10) {
                     
                     // プレイヤーがオーナーまたはメンバーの地域があるかチェック
                     if (region.getOwners().contains(player.getUniqueId()) || 

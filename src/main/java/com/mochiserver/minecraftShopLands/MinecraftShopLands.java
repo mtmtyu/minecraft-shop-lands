@@ -23,6 +23,7 @@ public final class MinecraftShopLands extends JavaPlugin {
         getCommand("renameland").setExecutor(new RenameLandCommand());
         getCommand("landinfo").setExecutor(new LandInfoCommand());
         getCommand("resetland").setExecutor(new LandInfoCommand());
+        getCommand("debugregion").setExecutor(new DebugRegionCommand());
 
         getLogger().info("MinecraftShopLands プラグインが有効になりました！");
         getLogger().info("木の斧で範囲選択し、/createshop コマンドで土地を作成できます。");
