@@ -10,6 +10,10 @@ commands:
     description: 選択範囲に土地を作成します
     usage: /createshop
     permission: shoplands.create
+  renameland:
+    description: 土地の名前を変更します
+    usage: /renameland <現在の土地名> <新しい土地名>
+    permission: shoplands.create
 permissions:
   shoplands.create:
     description: 土地を作成する権限
