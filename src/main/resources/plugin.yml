@@ -14,6 +14,13 @@ commands:
     description: 土地の名前を変更します
     usage: /renameland <現在の土地名> <新しい土地名>
     permission: shoplands.create
+  landinfo:
+    description: 自分の所有土地を表示します
+    usage: /landinfo
+  resetland:
+    description: 指定プレイヤーの土地所有権をリセットします
+    usage: /resetland <プレイヤー名>
+    permission: shoplands.admin
 permissions:
   shoplands.create:
     description: 土地を作成する権限

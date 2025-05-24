@@ -3,6 +3,8 @@ package com.mochiserver.minecraftShopLands;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldguard.WorldGuard;
 import com.sk89q.worldguard.domains.DefaultDomain;
+import com.sk89q.worldguard.protection.flags.Flags;
+import com.sk89q.worldguard.protection.flags.StateFlag;
 import com.sk89q.worldguard.protection.managers.RegionManager;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import com.sk89q.worldguard.protection.regions.RegionContainer;
@@ -40,6 +42,12 @@ public class SignInteractListener implements Listener {
             return;
         }
         
+        // 既に土地を所有しているかチェック
+        if (hasPlayerOwnedLand(player)) {
+            player.sendMessage("§c既に土地を所有しています。一人につき一つの土地のみ購入可能です。");
+            return;
+        }
+        
         ShopSignManager.ShopSignData signData = ShopSignManager.getShopSign(block.getLocation());
 
         if (signData == null) {
@@ -74,15 +82,47 @@ public class SignInteractListener implements Listener {
         if (regions != null) {
             ProtectedRegion region = regions.getRegion(regionName);
             if (region != null) {
-                // プレイヤーをメンバーに追加
+                // プレイヤーをオーナーに追加（より高い権限）
+                DefaultDomain owners = region.getOwners();
+                owners.addPlayer(player.getUniqueId());
+                region.setOwners(owners);
+                
+                // メンバーからも追加（予備として）
                 DefaultDomain members = region.getMembers();
                 members.addPlayer(player.getUniqueId());
                 region.setMembers(members);
 
-                // WorldGuardでは、メンバーは自動的に地域内でビルド権限を得る
-                // 地域の設定では build, block-place, block-break が DENY に設定されているが
-                // メンバーに対してはこれらの制限が適用されない
+                player.sendMessage("§a地域 §e" + regionName + " §aのオーナーになりました！");
+                player.sendMessage("§7この土地では自由に建築・破壊ができます。");
+            } else {
+                player.sendMessage("§c地域が見つかりませんでした: " + regionName);
+            }
+        } else {
+            player.sendMessage("§c地域管理システムにアクセスできませんでした。");
+        }
+    }    /**
+     * プレイヤーが既に土地を所有しているかチェック
+     * ショップ土地の地域のみをチェック対象とする
+     */
+    private boolean hasPlayerOwnedLand(Player player) {
+        RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
+        RegionManager regions = container.get(BukkitAdapter.adapt(player.getWorld()));
+        
+        if (regions != null) {
+            // すべての地域をチェック
+            for (ProtectedRegion region : regions.getRegions().values()) {
+                // ショップ土地の地域かチェック（優先度10でbuild=DENYの地域）
+                if (region.getPriority() == 10 && 
+                    region.getFlag(Flags.BUILD) == StateFlag.State.DENY) {
+                    
+                    // プレイヤーがオーナーまたはメンバーの地域があるかチェック
+                    if (region.getOwners().contains(player.getUniqueId()) || 
+                        region.getMembers().contains(player.getUniqueId())) {
+                        return true;
+                    }
+                }
             }
         }
+        return false;
     }
 }
